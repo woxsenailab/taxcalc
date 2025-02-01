@@ -41,8 +41,7 @@ class IndiaTaxCalculator:
         return tax
 
 def main():
-    st.title("AI Research Centre, Woxsen University
-    India Tax Calculator (2025 Updated)")
+    st.title("AI Research Centre, Woxsen University, India Tax Calculator (2025 Updated)")
     salary = st.number_input("Enter your annual salary (CTC):", min_value=0.0, step=10000.0, format="%.2f")
     
     if st.button("Compare Tax Regimes"):
