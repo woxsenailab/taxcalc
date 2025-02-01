@@ -1,75 +1,78 @@
 import streamlit as st
+import pandas as pd
 
 class IndiaTaxCalculator:
-    def __init__(self, salary, regime):
+    def __init__(self, salary, investments, tds, regime):
         self.salary = salary
+        self.investments = investments
+        self.tds = tds
         self.regime = regime
+        self.standard_deduction = 50000
         
         self.new_tax_slabs = [
-            (1200000, 0.00),
-            (1500000, 0.10),
-            (1800000, 0.15),
-            (2100000, 0.20),
-            (2400000, 0.25),
-            (float('inf'), 0.30)
+            (300000, 0.00),
+            (600000, 0.05),
+            (900000, 0.10),
+            (1200000, 0.15),
+            (float('inf'), 0.20)
         ]
         
         self.old_tax_slabs = [
             (250000, 0.00),
             (500000, 0.05),
-            (750000, 0.10),
-            (1000000, 0.15),
-            (1250000, 0.20),
-            (1500000, 0.25),
+            (1000000, 0.20),
             (float('inf'), 0.30)
         ]
     
     def calculate_tax(self):
-        taxable_income = self.salary
+        taxable_income = max(self.salary - self.standard_deduction - self.investments, 0)
         tax = 0
         prev_limit = 0
         tax_slabs = self.new_tax_slabs if self.regime == "New" else self.old_tax_slabs
         
+        tax_breakdown = []
         for limit, rate in tax_slabs:
             if taxable_income > prev_limit:
                 taxable_amount = min(taxable_income, limit) - prev_limit
-                tax += taxable_amount * rate
+                tax_amount = taxable_amount * rate
+                tax += tax_amount
+                tax_breakdown.append([f"{prev_limit} - {limit}", f"{rate*100}%", f"₹{taxable_amount:,.2f}", f"₹{tax_amount:,.2f}"])
                 prev_limit = limit
             else:
                 break
         
-        return tax
+        tax -= self.tds  # Adjust for TDS paid
+        tax = max(tax, 0)  # Ensure tax is not negative
+        return tax, tax_breakdown
+
 
 def main():
-    st.title("AI Research Centre, Woxsen University, India Tax Calculator (2025 Updated)")
+    st.title("🇮🇳 India Tax Calculator (2025)")
+    
     salary = st.number_input("Enter your annual salary (CTC):", min_value=0.0, step=10000.0, format="%.2f")
+    investments = st.number_input("Enter total eligible investments (80C, etc.):", min_value=0.0, step=10000.0, format="%.2f")
+    tds = st.number_input("Enter TDS deducted:", min_value=0.0, step=1000.0, format="%.2f")
+    regime = st.radio("Choose a tax regime:", ["New", "Old"])
+    
+    if st.button("Calculate Tax"):
+        tax, breakdown = IndiaTaxCalculator(salary, investments, tds, regime).calculate_tax()
+        
+        st.subheader(f"Total Tax under {regime} Regime: ₹{tax:,.2f}")
+        
+        st.write("### Tax Calculation Breakdown")
+        df = pd.DataFrame(breakdown, columns=["Income Slab", "Rate", "Taxable Amount", "Tax Paid"])
+        st.table(df)
     
     if st.button("Compare Tax Regimes"):
-        new_tax = IndiaTaxCalculator(salary, "New").calculate_tax()
-        old_tax = IndiaTaxCalculator(salary, "Old").calculate_tax()
+        new_tax, _ = IndiaTaxCalculator(salary, investments, tds, "New").calculate_tax()
+        old_tax, _ = IndiaTaxCalculator(salary, investments, tds, "Old").calculate_tax()
         
-        st.subheader("Tax Calculation Results")
+        st.subheader("Tax Comparison")
         st.write(f"New Regime Tax: ₹{new_tax:,.2f}")
         st.write(f"Old Regime Tax: ₹{old_tax:,.2f}")
         st.write(f"Difference: ₹{abs(new_tax - old_tax):,.2f}")
         
-        st.subheader("Tax Slabs")
-        st.write("**New Tax Regime Slabs (2025):**")
-        st.write("Up to ₹12,00,000: No tax")
-        st.write("₹12,00,001 to ₹15,00,000: 10%")
-        st.write("₹15,00,001 to ₹18,00,000: 15%")
-        st.write("₹18,00,001 to ₹21,00,000: 20%")
-        st.write("₹21,00,001 to ₹24,00,000: 25%")
-        st.write("Above ₹24,00,000: 30%")
-        
-        st.write("**Old Tax Regime Slabs:**")
-        st.write("Up to ₹2,50,000: No tax")
-        st.write("₹2,50,001 to ₹5,00,000: 5%")
-        st.write("₹5,00,001 to ₹7,50,000: 10%")
-        st.write("₹7,50,001 to ₹10,00,000: 15%")
-        st.write("₹10,00,001 to ₹12,50,000: 20%")
-        st.write("₹12,50,001 to ₹15,00,000: 25%")
-        st.write("Above ₹15,00,000: 30%")
+        st.bar_chart({"New Regime": new_tax, "Old Regime": old_tax})
 
 if __name__ == "__main__":
     main()
